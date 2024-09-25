@@ -4,12 +4,17 @@
   "description": "Maximilian Schwarzmüller: Understanding Typecript - Typescript Drag and Drop project",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "lite-server"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "typescript",
+    "course"
+  ],
+  "author": "Amy",
   "license": "ISC",
   "devDependencies": {
+    "lite-server": "^2.6.1",
     "typescript": "^5.5.4"
   }
 }
