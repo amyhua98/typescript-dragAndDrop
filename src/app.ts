@@ -13,11 +13,30 @@
 //   return adjDescriptor;
 // }
 
+enum ProjectStatus {
+  Active,
+  Finished,
+}
+
+//Project Type
+//custom class type can help align data consistency and simplified code
+class Project {
+  constructor(
+    public id: string,
+    public title: string,
+    public description: string,
+    public people: number,
+    public status: ProjectStatus
+  ) {}
+}
+
+type Listener = (items: Project[]) => void;
+
 //Project State Management
 //singleton - design pattern ensures that a class has only one instance and provides a global point of access to that instanc - good for consistency, controlled access, thread safety
 class ProjectState {
-  private listeners: any[] = [];
-  private projects: any[] = [];
+  private listeners: Listener[] = [];
+  private projects: Project[] = [];
   private static instance: ProjectState;
   private constructor() {}
 
@@ -30,17 +49,18 @@ class ProjectState {
   }
 
   //push all functions in a list so when it loops
-  addListener(listenerFn: Function) {
+  addListener(listenerFn: Listener) {
     this.listeners.push(listenerFn);
   }
 
   addProject(title: string, description: string, numOfPpl: number) {
-    const newProject = {
-      id: Math.random().toString(),
-      title: title,
-      description: description,
-      people: numOfPpl,
-    };
+    const newProject = new Project(
+      Math.random().toString(),
+      title,
+      description,
+      numOfPpl,
+      ProjectStatus.Active
+    );
     this.projects.push(newProject);
     for (const listenerFn of this.listeners) {
       listenerFn(this.projects.slice());
@@ -99,7 +119,7 @@ class ProjectList {
   templateElement: HTMLTemplateElement;
   hostElement: HTMLDivElement;
   element: HTMLElement;
-  assignedProjects: any[];
+  assignedProjects: Project[];
 
   constructor(private type: "active" | "finished") {
     this.templateElement = document.getElementById(
@@ -115,7 +135,7 @@ class ProjectList {
     this.element.id = `${this.type}-projects`;
 
     //list of projects, what we want to do to each project
-    projectState?.addListener((projects: any[]) => {
+    projectState?.addListener((projects: Project[]) => {
       this.assignedProjects = projects;
       this.renderProject();
     });
