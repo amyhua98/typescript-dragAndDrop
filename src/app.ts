@@ -30,15 +30,25 @@ class Project {
   ) {}
 }
 
-type Listener = (items: Project[]) => void;
+class State<T> {
+  protected listeners: Listener<T>[] = [];
+
+  //push all functions in a list so when it loops
+  addListener(listenerFn: Listener<T>) {
+    this.listeners.push(listenerFn);
+  }
+}
+
+type Listener<T> = (items: T[]) => void;
 
 //Project State Management
 //singleton - design pattern ensures that a class has only one instance and provides a global point of access to that instanc - good for consistency, controlled access, thread safety
-class ProjectState {
-  private listeners: Listener[] = [];
+class ProjectState extends State<Project> {
   private projects: Project[] = [];
   private static instance: ProjectState;
-  private constructor() {}
+  private constructor() {
+    super();
+  }
 
   static getInstance() {
     if (this.instance) {
@@ -46,11 +56,6 @@ class ProjectState {
     }
     this.instance = new ProjectState();
     return this.instance;
-  }
-
-  //push all functions in a list so when it loops
-  addListener(listenerFn: Listener) {
-    this.listeners.push(listenerFn);
   }
 
   addProject(title: string, description: string, numOfPpl: number) {
@@ -114,26 +119,60 @@ function validate(validatableInput: Validatable) {
   return isValid;
 }
 
-//ProjectList class
-class ProjectList {
+//Component Base Class
+//Generics are a powerful feature in programming languages (like Java, C#, TypeScript, and others) that allow you to write flexible,
+//reusable code that can work with any data type while maintaining type safety.
+abstract class Component<T extends HTMLElement, U extends HTMLElement> {
   templateElement: HTMLTemplateElement;
-  hostElement: HTMLDivElement;
-  element: HTMLElement;
-  assignedProjects: Project[];
+  hostElement: T;
+  element: U;
 
-  constructor(private type: "active" | "finished") {
+  constructor(
+    templateId: string,
+    hostElementId: string,
+    insertAtStart: boolean,
+    newElementId?: string
+  ) {
     this.templateElement = document.getElementById(
-      "project-list"
+      templateId
     )! as HTMLTemplateElement;
-    this.hostElement = document.getElementById("app")! as HTMLDivElement;
-    this.assignedProjects = [];
+    this.hostElement = document.getElementById(hostElementId)! as T;
+
     const importedNode = document.importNode(
       this.templateElement.content,
       true
     );
-    this.element = importedNode.firstElementChild as HTMLElement;
-    this.element.id = `${this.type}-projects`;
+    this.element = importedNode.firstElementChild as U;
+    if (newElementId) {
+      this.element.id = newElementId;
+    }
+    this.attach(insertAtStart);
+  }
 
+  private attach(insertAtBegin: boolean) {
+    this.hostElement.insertAdjacentElement(
+      insertAtBegin ? "afterbegin" : "beforeend",
+      this.element
+    );
+  }
+
+  abstract configure(): void;
+  abstract renderContent(): void;
+}
+
+//ProjectList class
+//By extending to Compoments it is then drawing the variables and functions from the Component class
+class ProjectList extends Component<HTMLDivElement, HTMLElement> {
+  assignedProjects: Project[];
+
+  constructor(private type: "active" | "finished") {
+    super("project-list", "app", false, `${type}-projects`);
+    this.assignedProjects = [];
+    this.configure();
+    this.renderContent();
+  }
+
+  configure() {
     //list of projects, what we want to do to each project
     projectState?.addListener((projects: Project[]) => {
       const relevantProjects = projects.filter((prj) => {
@@ -146,9 +185,13 @@ class ProjectList {
       this.assignedProjects = relevantProjects;
       this.renderProject();
     });
+  }
 
-    this.attach();
-    this.renderContent();
+  renderContent() {
+    const listId = `${this.type}-projects-list`;
+    this.element.querySelector("ul")!.id = listId;
+    this.element.querySelector("h2")!.textContent =
+      this.type.toUpperCase() + "PROJECTS";
   }
 
   private renderProject() {
@@ -162,42 +205,17 @@ class ProjectList {
       listEl?.appendChild(listItem);
     }
   }
-
-  private renderContent() {
-    const listId = `${this.type}-projects-list`;
-    this.element.querySelector("ul")!.id = listId;
-    this.element.querySelector("h2")!.textContent =
-      this.type.toUpperCase() + "PROJECTS";
-  }
-
-  private attach() {
-    this.hostElement.insertAdjacentElement("beforeend", this.element);
-  }
 }
 
 //Project Input class
-class ProjectInput {
-  templateElement: HTMLTemplateElement;
-  hostElement: HTMLDivElement;
-  element: HTMLFormElement;
+class ProjectInput extends Component<HTMLDivElement, HTMLFormElement> {
   titleInputElement: HTMLInputElement;
   descriptionInputElement: HTMLInputElement;
   peopleInputElement: HTMLInputElement;
 
   // want to take in elements from index.html so we can use to process it
   constructor() {
-    this.templateElement = document.getElementById(
-      "project-input"
-    )! as HTMLTemplateElement;
-    this.hostElement = document.getElementById("app")! as HTMLDivElement;
-
-    const importedNode = document.importNode(
-      this.templateElement.content,
-      true
-    );
-    this.element = importedNode.firstElementChild as HTMLFormElement;
-    this.element.id = "user-input";
-
+    super("project-input", "app", true, "user-input");
     // take in peoples input when they type into the box
     this.titleInputElement = this.element.querySelector(
       "#title"
@@ -208,10 +226,15 @@ class ProjectInput {
     this.peopleInputElement = this.element.querySelector(
       "#people"
     ) as HTMLInputElement;
-
     this.configure();
-    this.attach();
   }
+
+  //preconfigure how to execute this - sub for the autobind decorator
+  configure() {
+    this.element.addEventListener("submit", this.submitHandler.bind(this));
+  }
+
+  renderContent() {}
 
   //tuples [T,T,T] is only a typescript thing
   private gatherUserInput(): [string, string, number] | void {
@@ -263,15 +286,6 @@ class ProjectInput {
       projectState?.addProject(title, desc, people);
       console.log(title, desc, people);
     }
-  }
-
-  //preconfigure how to execute this - sub for the autobind decorator
-  private configure() {
-    this.element.addEventListener("submit", this.submitHandler.bind(this));
-  }
-
-  private attach() {
-    this.hostElement.insertAdjacentElement("afterbegin", this.element);
   }
 }
 
