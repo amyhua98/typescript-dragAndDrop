@@ -1,7 +1,11 @@
 //autobind decorator - helper functions to bind the components in index.html to the elements
 
 // naming parameters with _ allows you to have parameters that you may not use
-function autobind(_: any, _2: string, descriptor: PropertyDescriptor) {
+function autobind(_: any, _2: string, descriptor?: PropertyDescriptor) {
+  if (!descriptor) {
+    // If no descriptor is provided, return nothing (used as a marker decorator)
+    return;
+  }
   const originalMethod = descriptor.value;
   const adjDescriptor: PropertyDescriptor = {
     configurable: true,
@@ -79,6 +83,17 @@ class ProjectState extends State<Project> {
       ProjectStatus.Active
     );
     this.projects.push(newProject);
+    this.updateListeners();
+  }
+
+  moveProject(projectId: string, newStatus: ProjectStatus) {
+    const project = this.projects.find((prj) => prj.id === projectId);
+    if (project && project.status !== newStatus) {
+      project.status = newStatus;
+    }
+  }
+
+  private updateListeners() {
     for (const listenerFn of this.listeners) {
       listenerFn(this.projects.slice());
     }
@@ -195,8 +210,11 @@ class ProjectItem
     this.renderContent();
   }
 
+  @autobind
   dragStartHandler(event: DragEvent): void {
-    console.log(event);
+    //adding droppable area
+    event.dataTransfer!.setData("text/plain", this.project.id);
+    event.dataTransfer!.effectAllowed = "move";
   }
 
   dragEndHandler(event: DragEvent): void {
@@ -229,14 +247,31 @@ class ProjectList
     this.renderContent();
   }
 
+  @autobind
   dragOverHandler(event: DragEvent): void {
+    if (event.dataTransfer && event.dataTransfer.types[0] === "text/plain") {
+      event.preventDefault();
+      const listEl = this.element.querySelector("ul")!;
+      listEl.classList.add("droppable");
+    }
     const listEl = this.element.querySelector("ul")!;
     listEl.classList.add("droppable");
   }
 
-  dropHandler(event: DragEvent): void {}
+  @autobind
+  dropHandler(event: DragEvent): void {
+    console.log(event.dataTransfer!.getData("text/plain"));
+    // projectState.moveProject(
+    //   projectId,
+    //   this.type === "active" ? ProjectStatus.Active : ProjectStatus.Finished
+    // );
+  }
 
-  dragLeaveHandler(event: DragEvent): void {}
+  @autobind
+  dragLeaveHandler(event: DragEvent): void {
+    const listEl = this.element.querySelector("ul")!;
+    listEl.classList.remove("droppable");
+  }
 
   configure() {
     //list of projects, what we want to do to each project
